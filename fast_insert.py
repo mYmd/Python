@@ -27,33 +27,39 @@ def insert_expr_(schema, tablename, columnnames, insert_unit):
 def fast_insert(con, schema, tablename, values, commit_unit):
     attr = con.cursor().columns(schema=schema, table=tablename).fetchall()
     columnnames = tuple(x[3] for x in attr)
-    insert_unit = int(2099/len(columnnames))
+    insert_unit = min(int(2099/len(columnnames)), commit_unit)
     it = iter(values)
-    total = 0
-    while True:
-        row_count = 0
-        part = ()
-        buf = []
-        while row_count < commit_unit:
-            ref = idcount()
-            part = tuple(x for rec in partial_gen(it, insert_unit) for x in ref(rec) )
-            row_count += ref.counter
-            total += ref.counter
-            if ref.counter < insert_unit:
-                break
-            buf.append(part)
+    total, total_tmp = 0, 0
+    try:
+        while True:
+            row_count = 0
             part = ()
-        if len(part)==0 and buf:
-            expr = insert_expr_(schema, tablename, columnnames, insert_unit)
-            con.cursor().executemany(expr, buf)
-            con.commit()
-        elif part:
-            expr = insert_expr_(schema, tablename, columnnames, ref.counter)
-            con.cursor().execute(expr, part)
-            con.commit()
-            break
-        if ref.counter == 0:
-            break
+            buf = []
+            while row_count < commit_unit:
+                ref = idcount()
+                part = tuple(x for rec in partial_gen(it, insert_unit) for x in ref(rec) )
+                row_count += ref.counter
+                if ref.counter < insert_unit:
+                    break
+                total_tmp += ref.counter
+                buf.append(part)
+                part = ()
+            if buf:
+                expr = insert_expr_(schema, tablename, columnnames, insert_unit)
+                con.cursor().executemany(expr, buf)
+                con.commit()
+                total = total_tmp
+            if part:
+                expr = insert_expr_(schema, tablename, columnnames, ref.counter)
+                con.cursor().execute(expr, part)
+                con.commit()
+                total += ref.counter
+                break
+            if ref.counter == 0:
+                break
+    except pyodbc.Error as err:
+        err.committed = total
+        raise
     return total
 
 '''
@@ -71,4 +77,3 @@ def main():
 if __name__ == '__main__':
     main()
 '''
-
