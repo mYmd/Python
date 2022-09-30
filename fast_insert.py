@@ -27,7 +27,7 @@ def insert_expr_(schema, tablename, columnnames, insert_unit):
 def fast_insert(con, schema, tablename, values, commit_unit):
     attr = con.cursor().columns(schema=schema, table=tablename).fetchall()
     columnnames = tuple(x[3] for x in attr)
-    insert_unit = min(int(2099/len(columnnames)), commit_unit)
+    insert_unit = min(2099//len(columnnames), commit_unit)
     it = iter(values)
     total, total_tmp = 0, 0
     try:
