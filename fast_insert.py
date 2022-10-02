@@ -24,11 +24,12 @@ def insert_expr_(schema, tablename, columnnames, insert_unit):
 
 #https://learn.microsoft.com/ja-jp/azure/azure-sql/performance-improve-use-batching?view=azuresql#multiple-row-parameterized-insert-statements
 
-def fast_insert(con, schema, tablename, values, commit_unit):
+def fast_insert(con, schema, tablename, source, generate_method = None, commit_unit=16384):
     attr = con.cursor().columns(schema=schema, table=tablename).fetchall()
     columnnames = tuple(x[3] for x in attr)
     insert_unit = min(2099//len(columnnames), commit_unit)
-    it = iter(values)
+    gen_v = generate_method if callable(generate_method) else partial_gen
+    it = iter(source)
     total, total_tmp = 0, 0
     try:
         while True:
@@ -37,7 +38,7 @@ def fast_insert(con, schema, tablename, values, commit_unit):
             buf = []
             while row_count < commit_unit:
                 ref = idcount()
-                part = tuple(x for rec in partial_gen(it, insert_unit) for x in ref(rec) )
+                part = tuple(x for rec in gen_v(it, insert_unit) for x in ref(rec) )
                 row_count += ref.counter
                 if ref.counter < insert_unit:
                     break
