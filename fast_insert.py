@@ -31,6 +31,8 @@ def fast_insert(con, schema, tablename, source, generate_method = None, commit_u
     gen_v = generate_method if callable(generate_method) else partial_gen
     it = iter(source)
     total, total_tmp = 0, 0
+    cur_t = con.cursor()
+    cur_t.fast_executemany = True
     try:
         while True:
             row_count = 0
@@ -47,12 +49,12 @@ def fast_insert(con, schema, tablename, source, generate_method = None, commit_u
                 part = ()
             if buf:
                 expr = insert_expr_(schema, tablename, columnnames, insert_unit)
-                con.cursor().executemany(expr, buf)
+                cur_t.executemany(expr, buf)
                 con.commit()
                 total = total_tmp
             if part:
                 expr = insert_expr_(schema, tablename, columnnames, ref.counter)
-                con.cursor().execute(expr, part)
+                cur_t.execute(expr, part)
                 con.commit()
                 total += ref.counter
                 break
