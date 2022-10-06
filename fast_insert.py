@@ -18,13 +18,13 @@ class idcount:
         return x
 
 
-def insert_expr_(schema, tablename, columnnames, insert_unit):
-    u = f"({','.join(['?']*len(columnnames))})"
+def insert_expr_(schema, tablename, columnnames, bind_params, insert_unit):
+    u = f"({','.join(['?']*len(columnnames))})" if not bind_params else bind_params
     return f'INSERT INTO {schema}.{tablename} ({",".join(columnnames)}) VALUES {",".join([u] * insert_unit)};'
 
 #https://learn.microsoft.com/ja-jp/azure/azure-sql/performance-improve-use-batching?view=azuresql#multiple-row-parameterized-insert-statements
 
-def fast_insert(con, schema, tablename, source, generate_method = None, commit_unit=16384):
+def fast_insert(con, schema, tablename, source, generate_method = None, commit_unit=16384, bind_params = None):
     attr = con.cursor().columns(schema=schema, table=tablename).fetchall()
     columnnames = tuple(x[3] for x in attr)
     insert_unit = min(2099//len(columnnames), commit_unit)
@@ -48,12 +48,12 @@ def fast_insert(con, schema, tablename, source, generate_method = None, commit_u
                 buf.append(part)
                 part = ()
             if buf:
-                expr = insert_expr_(schema, tablename, columnnames, insert_unit)
+                expr = insert_expr_(schema, tablename, columnnames, bind_params, insert_unit)
                 cur_t.executemany(expr, buf)
                 con.commit()
                 total = total_tmp
             if part:
-                expr = insert_expr_(schema, tablename, columnnames, ref.counter)
+                expr = insert_expr_(schema, tablename, columnnames, bind_params, ref.counter)
                 cur_t.execute(expr, part)
                 con.commit()
                 total += ref.counter
