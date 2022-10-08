@@ -49,7 +49,8 @@ def fast_insert(con, schema, tablename, source, generate_method = None, commit_u
                 buf.append(part)
                 part = ()
             if buf:
-                expr = insert_expr_(schema, tablename, columnnames, bind_params, insert_unit)
+                if not expr:
+                    expr = insert_expr_(schema, tablename, columnnames, bind_params, insert_unit)
                 cur_t.executemany(expr, buf)
                 con.commit()
                 total = total_tmp
